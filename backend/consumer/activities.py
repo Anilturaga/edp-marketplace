@@ -18,6 +18,7 @@ class InvocationParams:
 @dataclass
 class LLMState:
     user_id: str = ""
+    system_message: str = ""
     messages: list[dict] = field(default_factory=list)
     tools: list[dict] = field(default_factory=list)
     agents: dict = field(default_factory=dict)
@@ -56,7 +57,15 @@ class ModelOutputParams:
 
 @activity.defn
 async def llm_setup(params: InvocationParams) -> LLMState:
-    sys_msg = f"""You are a dedicated personal banking assistant.
+    # "Consumer": ["Anil", "Prahastha", "Ayushman"],
+    # "Issuer": ["HDFCBank", "ICICIBank"],
+    # "Merchant": ["Amazon", "Flipkart", "Croma", "RelianceDigital"],
+
+    mapping = {
+        "Anil": {
+            "type": "Consumer",
+            "about": "Anil is a consumer who is looking to purchase a new laptop.",
+            "system_message": f"""You are a dedicated personal banking assistant.
 
     You are responsible for managing all aspects of your user/operator's banking needs related to purchase requests. This includes handling all communication with bank agents, managing tasks, and scheduling reminders.
 
@@ -81,17 +90,7 @@ async def llm_setup(params: InvocationParams) -> LLMState:
     - Only notify user/operator of final results or if you need guidance
 
     User/Operator ID: {params.user_id}
-    """
-
-    # "Consumer": ["Anil", "Prahastha", "Ayushman"],
-    # "Issuer": ["HDFCBank", "ICICIBank"],
-    # "Merchant": ["Amazon", "Flipkart", "Croma", "RelianceDigital"],
-
-    mapping = {
-        "Anil": {
-            "type": "Consumer",
-            "about": "Anil is a consumer who is looking to purchase a new laptop.",
-            "system_message": "",
+    """,
             "access": ["HDFCBank"],
         },
         "HDFCBank": {
@@ -105,20 +104,25 @@ async def llm_setup(params: InvocationParams) -> LLMState:
             "about": "Amazon is an e-commerce platform that sells a variety of products and adds discounts.",
             "system_message": "",
             "access": ["HDFCBank"],
-            "products": [],
         },
     }
 
-    messages = [{"role": "system", "content": sys_msg}]
 
     agents = {}
-    for each in mapping["user_id"]["access"]:
+    for each in mapping[params.user_id]["access"]:
+        agents[each] = {}
         agents[each]["type"] = mapping[each]["type"]
         agents[each]["about"] = mapping[each]["about"]
+    
+    sys_msg = mapping[params.user_id]["system_message"] + f"""
+Agents you can communicate with:
+{agents}
+"""
 
     return LLMState(
         user_id=params.user_id,
-        messages=messages,
+        messages=[],
+        system_message=sys_msg,
         tools=[
             # send_user_message(),
             # send_user_colleague_message(),
@@ -148,6 +152,8 @@ async def llm_call(params: LLMState) -> dict:
     message = await client.messages.create(
         model="claude-3-5-sonnet-latest",
         max_tokens=8000,
+        temperature=0.0,
+        system=params.system_message,
         messages=params.messages,  # type: ignore
         tools=params.tools,  # type: ignore
         tool_choice=tool_choice,
@@ -162,13 +168,13 @@ async def send_message_to_agent_tool(params: AgentMessageParams) -> str:
     from temporalio.client import Client
 
     client = await Client.connect("localhost:7233")
+    workflow_id = params.agents[params.to_id]["type"].lower() + "-" + params.to_id + "-" + params.run_id
     agent_workflow_handle = client.get_workflow_handle(
-        params.to_id + "-" + params.run_id
+        workflow_id,
     )
     try:
         await agent_workflow_handle.describe()
     except Exception as e:
-        workflow_id = params.agents[params.to_id]["type"].lower() + "-" + params.to_id
         asyncio.create_task(
             client.start_workflow(
                 "Workflow",
@@ -206,7 +212,3 @@ async def schedule_tool(params: ScheduleParams) -> str:
     )
     return "Reminder task done."
 
-
-@activity.defn
-async def no_action_tool() -> str:
-    return "Done."

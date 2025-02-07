@@ -94,13 +94,15 @@ class Workflow:
                 schedule_to_close_timeout=timedelta(seconds=30),
                 retry_policy=RetryPolicy(maximum_attempts=1),
             )
+            message = {k: v for k, v in message.items() if k in ["role", "content"]}
+            
             self.llm_state.messages.append(message)
 
             tool_response_string = ""
             tool_id = None
             for each_tool_call in message["content"]:
                 if each_tool_call["type"] == "tool_use":
-                    tool_if = each_tool_call["id"]
+                    tool_id = each_tool_call["id"]
                     each_tool_call["name"]
                     each_tool_call["input"]
                     thinking = each_tool_call["input"].get("thinking", None)

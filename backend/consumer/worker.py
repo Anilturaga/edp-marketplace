@@ -3,11 +3,10 @@ import asyncio
 from activities import (
     llm_setup,
     llm_call,
-    # send_user_message_tool,
     send_message_to_agent_tool,
     schedule_tool,
-    no_action_tool,
 )
+import sys
 from temporalio.client import Client
 from temporalio.worker import Worker
 from workflow import Workflow
@@ -15,19 +14,17 @@ from workflow import Workflow
 interrupt_event = asyncio.Event()
 
 
-async def main():
+async def main(user_id):
     client = await Client.connect("localhost:7233")
     worker = Worker(
         client,
-        task_queue="anil-queue",
+        task_queue=user_id+"-queue",
         workflows=[Workflow],
         activities=[
             llm_setup,
             llm_call,
-            # send_user_message_tool,
             send_message_to_agent_tool,
             schedule_tool,
-            # no_action_tool,
         ],
     )
 
@@ -42,9 +39,10 @@ async def main():
 
 
 if __name__ == "__main__":
+    user_id = sys.argv[1]
     loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(main())
+        loop.run_until_complete(main(user_id))
     except KeyboardInterrupt:
         print("\nInterrupt received, shutting down...\n")
         interrupt_event.set()
