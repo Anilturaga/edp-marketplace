@@ -4,10 +4,10 @@ import asyncio
 import json
 from temporalio.common import RetryPolicy
 from datetime import timedelta
-from temporalio.common import datetime
 
 
 with workflow.unsafe.imports_passed_through():
+    from temporalio.common import datetime # type: ignore
     from activities import (
         llm_call,
         llm_setup,
@@ -27,7 +27,7 @@ with workflow.unsafe.imports_passed_through():
 
 
 @workflow.defn
-class ConsumerWorkflow:
+class Workflow:
     @workflow.init
     def __init__(self, params: InvocationParams) -> None:
         self.user_id = params.user_id
@@ -35,18 +35,7 @@ class ConsumerWorkflow:
         self.agent_msg_queue = []
         self.scheduled_msg_queue = []
         self.llm_state = LLMState()
-        self.tool_activity_mapping = {
-            "schedule_reminder": (schedule_tool, ScheduleParams),
-            "agent_message" : (send_message_to_agent_tool, AgentMessageParams),
-            # "no_action": (no_action_tool, None),
-        }
-        # self.communication_mapping = {
-        #     # "send_user_message": (send_user_message_tool, UserMessageParams),
-        #     "send_user_colleague_message": (
-        #         send_message_to_agent_tool,
-        #         AgentMessageParams,
-        #     ),
-        # }
+
 
     @workflow.run
     async def run(self, params: InvocationParams) -> dict:
@@ -58,11 +47,11 @@ class ConsumerWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=1),
         )
         while True:
-            await workflow.wait_condition(
+            await workflow.wait_condition( 
                 lambda: bool(self.agent_msg_queue)
-                or self.user_msg
+                or bool(self.user_msg)
                 or bool(self.scheduled_msg_queue)
-            )
+            ) 
 
             # get time string in yyyy-mm-dd hh:mm:ss format
             time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -83,7 +72,6 @@ class ConsumerWorkflow:
                     "from": "agent",
                     "agent_id": clg_msg["from"],
                     "current_time": time_str,
-                    "name": clg_msg["name"],
                     "message": clg_msg["message"],
                 }
                 self.llm_state.messages.append(
@@ -100,7 +88,6 @@ class ConsumerWorkflow:
                     {"role": "user", "content": json.dumps(signal_msg, indent=2)}
                 )
 
-            
             message = await workflow.execute_activity(
                 llm_call,
                 self.llm_state,
@@ -108,118 +95,85 @@ class ConsumerWorkflow:
                 retry_policy=RetryPolicy(maximum_attempts=1),
             )
             self.llm_state.messages.append(message)
+
+            tool_response_string = ""
+            tool_id = None
             for each_tool_call in message["content"]:
                 if each_tool_call["type"] == "tool_use":
-                    each_tool_call["id"]
+                    tool_if = each_tool_call["id"]
                     each_tool_call["name"]
                     each_tool_call["input"]
+                    thinking = each_tool_call["input"].get("thinking", None)
+                    agent_messages = each_tool_call["input"].get("agent_messages", [])
+                    operator_message = each_tool_call["input"].get(
+                        "operator_message", None
+                    )
+                    schedule_reminder = each_tool_call["input"].get(
+                        "schedule_reminder", None
+                    )
+                    if thinking:
+                        print("Thinking: ", thinking)
+                    if agent_messages:
+                        for each_agent_message in agent_messages:
+                            print("Agent Message: ", each_agent_message)
+                            to_id = each_agent_message["to_id"]
+                            message = each_agent_message["message"]
+                            
+                            agent_message_params = AgentMessageParams(
+                                to_id=to_id,
+                                message=message,
+                                user_id=self.user_id,
+                                run_id = params.run_id,
+                                agents = self.llm_state.agents
+                            )
 
-
-            message.stop_reason == "tool_use"
-            if completion["stop_reason"] == "tool_use":
-                    
-
-
-                # completion = ChatCompletion(**completion)
-                # Get all tool calls
-                tool_calls = (
-                    completion.choices[0].message.tool_calls
-                    if completion.choices[0].message.tool_calls
-                    else []
-                )
-
-                # Update state with tool calls
-                self.llm_state.messages.append(
-                    {
-                        "role": "assistant",
-                        "content": completion.choices[0].message.content,
-                        "tool_calls": (
-                            [each.model_dump() for each in tool_calls]
-                            if len(tool_calls) > 0
-                            else None
-                        ),
-                    }
-                )
-
-                if tool_calls:
-                    # Execute all tool activities sequentially
-                    tool_results = []
-                    for tool_call in tool_calls:
-                        activity, dataclass = self.tool_activity_mapping[
-                            tool_call.function.name
-                        ]
-
-                        params = json.loads(tool_call.function.arguments)
-                        dataclass_params = dataclass(**params)
-                        dataclass_params.user_id = user_id
-                        if tool_call.function.name != "schedule_reminder":
                             result = await workflow.execute_activity(
-                                activity,
-                                dataclass_params,
+                                "send_message_to_agent_tool",
+                                agent_message_params,
                                 schedule_to_close_timeout=timedelta(hours=2),
                                 retry_policy=RetryPolicy(maximum_attempts=1),
                             )
-                        else:
-                            asyncio.create_task(
-                                workflow.execute_activity(
-                                    activity,
-                                    dataclass_params,
-                                    schedule_to_close_timeout=timedelta(hours=2),
-                                    retry_policy=RetryPolicy(maximum_attempts=1),
-                                )
-                            )
-                            result = {"message": "Reminder set"}
 
-                        tool_results.append(result)
+                            
+                            tool_response_string += result
 
-                    # Update state with all tool responses
-                    for tool_call, result in zip(tool_calls, tool_results):
-                        self.llm_state.messages.append(
-                            {
-                                "role": "tool",
-                                "content": str(result),
-                                "tool_call_id": tool_call.id,
-                            }
+
+                    if operator_message:
+                        print("Operator Message: ", operator_message)
+                        tool_response_string += "Your operator has been notified."
+
+                    if schedule_reminder:
+                        #                 self.tool_activity_mapping = {
+                        #     "schedule_reminder": (schedule_tool, ScheduleParams),
+                        #     "agent_message" : (send_message_to_agent_tool, AgentMessageParams),
+                        #     # "no_action": (no_action_tool, None),
+                        # }
+                        schedule_params = ScheduleParams(
+                            time=schedule_reminder["time"],
+                            message=schedule_reminder["message"],
+                            user_id=self.user_id,
+                            run_id = params.run_id
                         )
 
-                    # # Break loop if any no_action tool was called
-                    # if any(
-                    #     tool_call.function.name == "no_action"
-                    #     for tool_call in tool_calls
-                    # ):
-                    #     break
-                # if completion.choices[0].message.content:
-                #     # self.llm_state.messages.append(
-                #     #     {
-                #     #         "role": "assistant",
-                #     #         "content": completion.choices[0].message.content,
-                #     #     }
-                #     # )
-                #     if completion.choices[0].message.content:
-                #         parsed_response = json.loads(
-                #             completion.choices[0].message.content.encode()
-                #         )
-                #         dataclass_params = ModelOutputParams(**parsed_response)
-                #         if bool(dataclass_params.colleague_messages):
-                #             for each in dataclass_params.colleague_messages:
-                #                 activity, dataclass = self.communication_mapping[
-                #                     "send_user_colleague_message"
-                #                 ]
-
-                #                 c_dataclass_params = dataclass(**each)
-                #                 c_dataclass_params.user_id = user_id
-
-                #                 res = await workflow.execute_activity(
-                #                     send_message_to_agent_tool,
-                #                     c_dataclass_params,
-                #                     schedule_to_close_timeout=timedelta(hours=2),
-                #                     retry_policy=RetryPolicy(maximum_attempts=1),
-                #                 )
-                        # if dataclass_params.user_message:
-                        # activity, dataclass = self.communication_mapping["send_user_message"]
-
-                    break
-            continue
+                        asyncio.create_task(
+                            workflow.execute_activity(
+                                "schedule_reminder",
+                                schedule_params,
+                                schedule_to_close_timeout=timedelta(hours=2),
+                                retry_policy=RetryPolicy(maximum_attempts=1),
+                            )
+                        )
+                        tool_response_string += "Reminder set."
+            self.llm_state.messages.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_id,
+                        "content": [{"type": "text", "text": tool_response_string}],
+                    }
+                ],
+            })                
 
     @workflow.signal
     def user_msg_signal(self, input: str) -> None:

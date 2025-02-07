@@ -4,13 +4,13 @@ from activities import (
     llm_setup,
     llm_call,
     # send_user_message_tool,
-    send_user_colleague_message_tool,
+    send_message_to_agent_tool,
     schedule_tool,
     no_action_tool,
 )
 from temporalio.client import Client
 from temporalio.worker import Worker
-from workflow import ConsumerWorkflow
+from workflow import Workflow
 
 interrupt_event = asyncio.Event()
 
@@ -19,13 +19,13 @@ async def main():
     client = await Client.connect("localhost:7233")
     worker = Worker(
         client,
-        task_queue="consumer-workflow-queue",
-        workflows=[ConsumerWorkflow],
+        task_queue="anil-queue",
+        workflows=[Workflow],
         activities=[
             llm_setup,
             llm_call,
             # send_user_message_tool,
-            send_user_colleague_message_tool,
+            send_message_to_agent_tool,
             schedule_tool,
             # no_action_tool,
         ],

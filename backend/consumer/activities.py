@@ -8,10 +8,10 @@ from tools import (
 )
 import time
 
+
 @dataclass
 class InvocationParams:
     user_id: str
-    agents: list[str]
     run_id: str
 
 
@@ -20,7 +20,7 @@ class LLMState:
     user_id: str = ""
     messages: list[dict] = field(default_factory=list)
     tools: list[dict] = field(default_factory=list)
-    agents: list[str] = field(default_factory=list)
+    agents: dict = field(default_factory=dict)
     # response_format: dict | None = None
 
 
@@ -33,9 +33,10 @@ class UserMessageParams:
 @dataclass
 class AgentMessageParams:
     to_id: str
-    name: str
     message: str
     user_id: str = ""
+    run_id: str = ""
+    agents: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -43,6 +44,7 @@ class ScheduleParams:
     time: int
     message: str
     user_id: str = ""
+    run_id: str = ""
 
 
 @dataclass
@@ -81,7 +83,38 @@ async def llm_setup(params: InvocationParams) -> LLMState:
     User/Operator ID: {params.user_id}
     """
 
+    # "Consumer": ["Anil", "Prahastha", "Ayushman"],
+    # "Issuer": ["HDFCBank", "ICICIBank"],
+    # "Merchant": ["Amazon", "Flipkart", "Croma", "RelianceDigital"],
+
+    mapping = {
+        "Anil": {
+            "type": "Consumer",
+            "about": "Anil is a consumer who is looking to purchase a new laptop.",
+            "system_message": "",
+            "access": ["HDFCBank"],
+        },
+        "HDFCBank": {
+            "type": "Issuer",
+            "about": "HDFC Bank communicates with merchants to find products and create payment plans for consumers",
+            "system_message": "",
+            "access": ["Anil", "Amazon"],
+        },
+        "Amazon": {
+            "type": "Merchant",
+            "about": "Amazon is an e-commerce platform that sells a variety of products and adds discounts.",
+            "system_message": "",
+            "access": ["HDFCBank"],
+            "products": [],
+        },
+    }
+
     messages = [{"role": "system", "content": sys_msg}]
+
+    agents = {}
+    for each in mapping["user_id"]["access"]:
+        agents[each]["type"] = mapping[each]["type"]
+        agents[each]["about"] = mapping[each]["about"]
 
     return LLMState(
         user_id=params.user_id,
@@ -89,8 +122,9 @@ async def llm_setup(params: InvocationParams) -> LLMState:
         tools=[
             # send_user_message(),
             # send_user_colleague_message(),
-            response_schema(params.agents)
+            response_schema(list(agents.keys())),
         ],
+        agents=agents,
         # response_format=model_output_schema(),
     )
 
@@ -111,45 +145,15 @@ async def llm_call(params: LLMState) -> dict:
         "disable_parallel_tool_use": True,
     }
 
-    message = await client.messages.create(  
+    message = await client.messages.create(
         model="claude-3-5-sonnet-latest",
         max_tokens=8000,
-        messages=params.messages, # type: ignore
-        tools=params.tools, # type: ignore
+        messages=params.messages,  # type: ignore
+        tools=params.tools,  # type: ignore
         tool_choice=tool_choice,
     )
     print(f"Initial response: {message.model_dump_json(indent=2)}")
     return message.model_dump()
-
-    assert message.stop_reason == "tool_use"
-
-    tool = next(c for c in message.content if c.type == "tool_use")
-    response = await client.messages.create(
-        model="claude-3-5-sonnet-latest",
-        max_tokens=1024,
-        messages=[
-            user_message,
-            {"role": message.role, "content": message.content},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool.id,
-                        "content": [{"type": "text", "text": "The weather is 73f"}],
-                    }
-                ],
-            },
-        ],
-        tools=tools,
-    )
-    print(f"\nFinal response: {response.model_dump_json(indent=2)}")
-    return completion.model_dump()
-
-
-# @activity.defn
-# async def send_user_message_tool(msg: UserMessageParams) -> str:
-#     return "Message sent to user. You will be invoked/notified if/when they respond."
 
 
 @activity.defn
@@ -158,20 +162,32 @@ async def send_message_to_agent_tool(params: AgentMessageParams) -> str:
     from temporalio.client import Client
 
     client = await Client.connect("localhost:7233")
-    colleague_workflow_handle = client.get_workflow_handle(params.to_id)
+    agent_workflow_handle = client.get_workflow_handle(
+        params.to_id + "-" + params.run_id
+    )
+    try:
+        await agent_workflow_handle.describe()
+    except Exception as e:
+        workflow_id = params.agents[params.to_id]["type"].lower() + "-" + params.to_id
+        asyncio.create_task(
+            client.start_workflow(
+                "Workflow",
+                InvocationParams(user_id=params.to_id, run_id=params.run_id),
+                id=workflow_id,
+                task_queue=params.to_id + "-queue",
+                # id_reuse_policy=4,
+            )
+        )
+        await asyncio.sleep(5)
 
-    # colleague_workflow_handle = workflow.get_external_workflow_handle(params.to_id)
-    await colleague_workflow_handle.signal(
-        "colleague_msg_signal",
+    await agent_workflow_handle.signal(
+        "agent_msg_signal",
         {
             "from": params.user_id,
-            "name": params.name,
             "message": params.message,
         },
     )
-    return (
-        "Message sent to colleague. You will be invoked/notified if/when they respond."
-    )
+    return "Message sent to agent. You will be invoked/notified if/when they respond."
 
 
 @activity.defn
@@ -188,7 +204,7 @@ async def schedule_tool(params: ScheduleParams) -> str:
         "scheduled_msg_signal",
         f"Message scheduled {params.time} seconds ago: {params.message}",
     )
-    return "Reminder set."
+    return "Reminder task done."
 
 
 @activity.defn

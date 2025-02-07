@@ -50,7 +50,6 @@ def response_schema(enums: list[str]) -> dict:
                     },
                 },
             },
-
     }
 
 if __name__ == "__main__":
