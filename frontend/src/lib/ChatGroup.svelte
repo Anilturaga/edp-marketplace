@@ -28,7 +28,7 @@
 			headerState.chatScreen1 = data.chatScreen1;
 			headerState.chatScreen2 = data.chatScreen2;
 			headerState.chatScreen3 = data.chatScreen3;
-		}, 1000);
+		}, 2000);
 		return () => {
 			clearInterval(id);
 		};

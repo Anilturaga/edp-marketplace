@@ -40,6 +40,14 @@ agents_data = {
     - Rank offers based on the best terms and remove duplicate offers from different banks
     - Only notify user/operator of final results or if you need guidance
 
+    4. Final Response format:
+    - Use bullet points or numbered lists for better readablility and clarity.\
+    - Highlight key points in **bold** or *italics*.\
+    - Make the response more readable by making it concise and information dense based on the the user's query requirements.\
+    - Use **bold** formatting for mentions of products, brands, or features.\
+    - Prioritize the most relevant information from the user's perspective.\
+    - Aim for structured, concise responses with clear formatting and only necessary information mentioned.
+
     User/Operator ID: {user_id}
 """
         },
