@@ -325,10 +325,9 @@ async def send_message_to_agent_tool(params: AgentMessageParams) -> str:
         agent_workflow_handle = client.get_workflow_handle(
             workflow_id
         )
-        workflow_status = await agent_workflow_handle.describe()
-        print("WORKFLOW_STATUS",workflow_status.status, type(workflow_status.status))
-        if workflow_status == WorkflowExecutionStatus.TERMINATED or workflow_status == WorkflowExecutionStatus.FAILED:
-            print(f"**Worflow terminated**")
+        workflow_info = await agent_workflow_handle.describe()
+        if workflow_info.status == WorkflowExecutionStatus.TERMINATED or workflow_info.status == WorkflowExecutionStatus.FAILED:
+            print(f"**Worflow terminated/failed**")
             asyncio.create_task(
                 client.start_workflow(
                     "Workflow",
