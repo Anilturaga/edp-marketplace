@@ -1,15 +1,19 @@
 interface ChatIndexType {
 	id: string;
 	name: string;
+	type: string;
 }
 
 interface ChatType {
 	role: string;
-	content: string;
+	content: string | string[] | object;
 }
 
-interface MultiChatMap {
+
+export interface MultiChatMap {
+	id: string;
 	name: string;
+	type: string;
 	chat: ChatType[];
 }
 
@@ -17,9 +21,9 @@ interface HeaderState {
 	toggle: boolean;
 	chatIndex: ChatIndexType[];
 	activeChat: string;
-	customerChat: MultiChatMap[];
-	issuerChat: MultiChatMap[];
-	merchantChat: MultiChatMap[];
+	chatScreen1: MultiChatMap[];
+	chatScreen2: MultiChatMap[];
+	chatScreen3: MultiChatMap[];
 }
 
 export const headerState = $state<HeaderState>({
@@ -29,27 +33,16 @@ export const headerState = $state<HeaderState>({
 		// 	id: 'default',
 		// 	name: `New Chat`
 		// },
-		{
-			id: '1',
-			name: `Anil`
-		},
-		{
-			id: '2',
-			name: `Ayushman`
-		},
-		{
-			id: '3',
-			name: `Prahastha`
-		}
+		
 	],
-	activeChat: '1',
-	customerChat: [
+	activeChat: "default",
+	chatScreen1: [
 		// {
 		// 	name: 'Anil',
 		// 	chat: []
 		// }
 	],
-	issuerChat: [
+	chatScreen2: [
 		// {
 		// 	name: 'Offer Agent 1',
 		// 	chat: []
@@ -63,7 +56,7 @@ export const headerState = $state<HeaderState>({
 		// 	chat: []
 		// }
 	],
-	merchantChat: [
+	chatScreen3: [
 		// {
 		// 	id: 'default',
 		// 	name: 'Merchant 1',

@@ -1,0 +1,33 @@
+{
+	"role_screen_mapping": {
+		"consumer": "chatScreen1",
+		"issuer": "chatScreen2",
+		"merchant": "chatScreen3"
+	},
+	"personas": [
+		{
+			"User": "Anil",
+            "type": "consumer",
+			"credit_score": 750,
+			"risk_profile": "Good",
+			"points_redeemable": 10000,
+			"user_profile": "Premium"
+		},
+		{
+			"User": "Prahastha",
+            "type": "consumer",
+			"credit_score": 630,
+			"risk_profile": "Medium",
+			"points_redeemable": 3200,
+			"user_profile": "Standard"
+		},
+		{
+			"User": "Ayushman",
+            "type": "consumer",
+			"credit_score": 690,
+			"risk_profile": "Medium",
+			"points_redeemable": 4800,
+			"user_profile": "Standard"
+		}
+	]
+}
