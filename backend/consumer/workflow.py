@@ -154,12 +154,13 @@ class Workflow:
                             time=schedule_reminder["time"],
                             message=schedule_reminder["message"],
                             user_id=self.user_id,
+                            persona_type=self.llm_state.persona_type,
                             run_id = params.run_id
                         )
 
                         asyncio.create_task(
                             workflow.execute_activity(
-                                "schedule_reminder",
+                                "schedule_tool",
                                 schedule_params,
                                 schedule_to_close_timeout=timedelta(hours=2),
                                 retry_policy=RetryPolicy(maximum_attempts=1),
@@ -180,6 +181,7 @@ class Workflow:
     @workflow.signal
     def user_msg_signal(self, input: str) -> None:
         # 👉 A Signal handler mutates the Workflow state but cannot return a value.
+        print("received user message: ", input)
         self.user_msg = input
 
     @workflow.signal
@@ -194,7 +196,7 @@ class Workflow:
 
     @workflow.query
     def get_state(self) -> str:
-        print("Querying state", self.llm_state)
+        # print("Querying state", self.llm_state)
         state_dict = {}
         for field in self.llm_state.__dataclass_fields__:
             state_dict[field] = getattr(self.llm_state, field)

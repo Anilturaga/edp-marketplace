@@ -18,6 +18,8 @@ class InvocationParams:
 @dataclass
 class LLMState:
     user_id: str = ""
+    persona_type: str = ""
+    run_id: str = ""
     system_message: str = ""
     messages: list[dict] = field(default_factory=list)
     tools: list[dict] = field(default_factory=list)
@@ -46,6 +48,7 @@ class ScheduleParams:
     message: str
     user_id: str = ""
     run_id: str = ""
+    persona_type: str = ""
 
 
 @dataclass
@@ -121,6 +124,8 @@ Agents you can communicate with:
 
     return LLMState(
         user_id=params.user_id,
+        persona_type=mapping[params.user_id]["type"],
+        run_id=params.run_id,
         messages=[],
         system_message=sys_msg,
         tools=[
@@ -203,7 +208,7 @@ async def schedule_tool(params: ScheduleParams) -> str:
     from temporalio.client import Client
 
     client = await Client.connect("localhost:7233")
-    handle = client.get_workflow_handle(params.user_id)
+    handle = client.get_workflow_handle(params.persona_type.lower()+"-"+params.user_id + "-" + params.run_id)
     # workflow_id = workflow.info().workflow_id
     # handle = workflow.get_external_workflow_handle(workflow_id)
     await handle.signal(
