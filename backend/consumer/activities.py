@@ -12,6 +12,7 @@ import time
 
 load_dotenv()
 
+
 @dataclass
 class InvocationParams:
     user_id: str
@@ -66,19 +67,29 @@ async def llm_setup(params: InvocationParams) -> LLMState:
     # "Consumer": ["Anil", "Prahastha", "Ayushman"],
     # "Issuer": ["HDFCBank", "ICICIBank"],
     # "Merchant": ["Amazon", "Flipkart", "Croma", "RelianceDigital"],
-    
-    consumer_persona_info = {
-        "Anil" : """Anil is a premium user with a high credit score of 750. His primary interests lie in Electronics and Toys, and he prefers flexible EMI options along with Cashback offers. With 10,000 points redeemable, he enjoys top-tier benefits and access to exclusive deals""",
-        "Prahastha" : """Prahastha, with a credit score of 630, is a medium-risk user who focuses on Home Appliances. His preferred payment plans are EMI and Cash, and he has 3,200 redeemable points. He enjoys standard offers, with a solid foundation for financing options.""",
-        "Ayushman" : """Ayushman is a medium-risk user with a credit score of 690. He is interested in Fitness Equipment and prefers payment plans like EMI and Points Redemption. With 4,800 points available for redemption, Ayushman enjoys balanced benefits for his purchases."""
-    }
 
-    print("Operator_id",params.user_id)
-    #Fill in the mapping data 
+    # personas_data = {
+    #     "Consumer": {
+    #         "peronas" : [
+    #             {
+    #                 "user_id": "Anil",
+    #             }
+    #         ]
+    #     }
+    # }
+
+    # consumer_persona_info = {
+    #     "Anil": """Anil is a premium user with a high credit score of 750. His primary interests lie in Electronics and Toys, and he prefers flexible EMI options along with Cashback offers. With 10,000 points redeemable, he enjoys top-tier benefits and access to exclusive deals""",
+    #     "Prahastha": """Prahastha, with a credit score of 630, is a medium-risk user who focuses on Home Appliances. His preferred payment plans are EMI and Cash, and he has 3,200 redeemable points. He enjoys standard offers, with a solid foundation for financing options.""",
+    #     "Ayushman": """Ayushman is a medium-risk user with a credit score of 690. He is interested in Fitness Equipment and prefers payment plans like EMI and Points Redemption. With 4,800 points available for redemption, Ayushman enjoys balanced benefits for his purchases.""",
+    # }
+
+    print("Operator_id", params.user_id)
+    # Fill in the mapping data
     mapping = {
-        f"{params.user_id}": {
+        "Anil": {
             "type": "Consumer",
-            "about": f"{consumer_persona_info[params.user_id]}",
+            "about": f"Anil is a premium user with a high credit score of 750. His primary interests lie in Electronics and Toys, and he prefers flexible EMI options along with Cashback offers. With 10,000 points redeemable, he enjoys top-tier benefits and access to exclusive deals",
             "system_message": f"""You are a dedicated personal banking assistant.
 
     You are responsible for managing all aspects of your user/operator's banking needs related to purchase requests. This includes handling all communication with bank agents, managing tasks, and scheduling reminders.
@@ -105,7 +116,7 @@ async def llm_setup(params: InvocationParams) -> LLMState:
 
     User/Operator ID: {params.user_id}
     """,
-            "access": ["HDFCBank"],
+            "access": ["HDFCBank","ICICIBank"],
         },
         "HDFCBank": {
             "type": "Issuer",
@@ -164,12 +175,71 @@ async def llm_setup(params: InvocationParams) -> LLMState:
 
         User/Operator ID: HDFCBank
 """,
-            "access": ["Anil", "Amazon"],
+            "access": ["Anil", "Amazon", "Croma"],
+        },
+        "ICICIBank": {
+            "type": "Issuer",
+            "about": "ICICI Bank communicates with merchants to find products and create payment plans for consumers",
+            "system_message": """You are an ICICI banking/issuer assistant responsible for managing purchase requests, interacting with merchants, managing finanicial transactions and providing tailored payment options to users.  
+
+        1. Core Responsibilities:  
+        - Process purchase intents from Consumer agents and verify required details.  
+        - Communicate with Merchant agent to inquire about product availability, pricing, and alternatives. Retrieve all relevant product details and assess available payment plans.  
+        - Apply the best possible payment options, including EMI, BNPL, cashback, and trade-in deals based on your bank available payment plans.  
+
+        2. Task Management & Agent Communication Interactions:
+        - Process incoming messages and scheduled reminders without user/operator intervention when possible
+        - Create and manage tasks autonomously based on known patterns
+        - Schedule reminders and follow-ups automatically using the schedule tool
+        - Consumer Agent: Receive purchase requests and user requirements.  
+        - Merchant Agent: Request product availability and alternatives.  
+        - Banking System: Analyze all the applicable/available payment plans, ensuring they align with the user’s profile.  
+        - Consumer Agent: Return finalized product + payment plan details.  
+        - User/Operator: Only involve your user/operator when:
+            * You encounter an unknown situation requiring judgment
+            * You need approval for important decisions
+            * You've completed a significant task
+        - All messages must be through the tool call reponse
+        - When you are communicating with Merchant and Consumer agents, they know that you are an AI assistant
+
+        3. Offer & Plan Selection Rules:
+        - Select the best payment plans by matching product details, user information, risk profile, and category preferences etc.  
+        - Ensure stock availability before finalizing an offer.  
+        - Apply relevant discounts, loyalty-based offers, and limited-time deals** when applicable.  
+        - Rank offers based on:  
+            - Lowest Interest Rate
+            - Best Cashback/Discounts**  
+            - Highest Point Redemption Value**  
+
+        Refer to the **tables below** for detailed conditions and select the **best-suited plan** for the user.  
+
+        **ICICI's Available Payment Plans**
+        | Offer Type                     | Payment Plan Type        | EMI Available| EMI Tenure Available | Min Credit Score | Applicable User Profiles | Interest Rate | Points Redeemable Discount | Base Price Min| Base Price Max| Special Conditions |
+        |--------------------------------|--------------------------|--------------|----------------------|------------------|--------------------------|---------------|----------------------------|---------------|---------------|--------------------|
+        | **iPhone Partnered EMI Plan**  | EMI + Apple Partnered    | Yes          | 12, 18, 24 months    | 730              | Premium                  | 9.8%          | 15% off if >10,000 points  | 1000          | 2000          | Only on Apple products |
+        | **Flexible EMI Option**        | EMI                      | Yes          | 3, 6, 9, 12 months   | 680              | Standard, Premium        | 11.5%         | 8% off if >6000 points     | 500           | 1800          | Available for Gaming Consoles, Laptops |
+        | **Trade-In & Upgrade Plan**    | Trade-In + EMI           | Yes          | 6, 12, 18 months     | 700              | Standard, Premium        | 10.5%         | 9% off if >7000 points     | 900           | 2000          | Upgrade Samsung Galaxy, iPhones, MacBooks |
+        | **Cashback Festive Offer**     | EMI + Cashback           | Yes          | 3, 6, 9 months       | 690              | Standard, Premium        | 12.5%         | 10% cashback if >5000 points | 300         | 1200          | Limited to Festive Season |
+        | **Buy-Now-Pay-Later (BNPL)**   | BNPL                     | No           | N/A                  | 660              | Standard, Basic          | N/A           | 6% discount if >4000 points | 200          | 800           | BNPL option for small gadgets, home devices |
+        | **Zero Processing Fee EMI**    | EMI                      | Yes          | 6, 12, 18 months     | 720              | Premium, Standard        | 10.2%         | 7% off if >6000 points     | 1000          | 2200          | Available for TVs, Cameras, Laptops |
+        | **Limited Inventory Discount** | Cash                     | No           | N/A                  | 640              | Standard, Basic          | N/A           | 5% off if >3000 points     | 150           | 500           | Applies to last-stock items |
+
+                
+        **ICICI's Consumers Information**
+        | User Id | Credit Score | Risk Profile | Category Preferences    | Payment Plan Preferences| Points Redeemable| User Profile |
+        |---------|--------------|--------------|-------------------------|-------------------------|------------------|--------------|
+        | Anil    | 750          | Good         | Electronics, Toys       | EMI, Cashback           | 10,000           | Premium      |
+        |Prahastha| 630          | Medium       | Home Appliances         | EMI, Cash               | 3,200            | Standard     |
+        | Ayushman| 690          | Medium       | Fitness Equipment       | EMI, Points Redemption  | 4,800            | Standard     |
+
+        User/Operator ID: ICICIBank
+""",
+            "access": ["Anil", "Amazon", "Croma"],
         },
         "Amazon": {
             "type": "Merchant",
             "about": "Amazon is an e-commerce platform that sells a variety of products and adds discounts.",
-            "system_message": """You are a merchant assistant responsible for handling Amazon product inquiries from issuer/bank agents only and responding with relevant product information.  
+            "system_message": """You are an Amazon merchant assistant responsible for handling Amazon product inquiries from issuer/bank agents only and responding with relevant product information.  
 
         1. Core Responsibilities:  
             - Receive product request from issuer/bank agents.  
@@ -208,7 +278,7 @@ async def llm_setup(params: InvocationParams) -> LLMState:
 
         Refer to the **tables below** for detailed product details and select the **best-suited products** for the issuers/bank agent requests.  
 
-        **Merchant's Available Product Inventory**
+        **Amazon's Available Product Inventory**
         | Product_ID | Product_Name                                     | Category                  | Base_Price | Offer_Percentage | Offer_Type | Warranty_Extension_Months | Additional_Offers                               | Availability | Stock_Count | Merchant | Rating | Brand         |Offer_Expiry|
         |------------|--------------------------------------------------|---------------------------|------------|------------------|------------|---------------------------|------------------------------------------------|--------------|-------------|----------|--------|----------------|------------| 
         | A1001      | Star Wars Lego Death Star Set                    | Toys & Games              | 250        | 10               | Loyalty    | N/A                       | Loyalty points applicable                      | In Stock     | 15          | Amazon   | 4.8    | LEGO           | Ongoing    |
@@ -251,21 +321,110 @@ async def llm_setup(params: InvocationParams) -> LLMState:
 
     User/Operator ID: Amazon
 """,
-            "access": ["HDFCBank"],
+            "access": ["HDFCBank", "ICICIBank"],
+        },
+        "Croma": {
+            "type": "Merchant",
+            "about": "Croma is an e-commerce platform that sells a variety of products and adds discounts.",
+            "system_message": """You are a Croma merchant assistant responsible for handling Croma product inquiries from issuer/bank agents only and responding with relevant product information.  
+
+        1. Core Responsibilities:  
+            - Receive product request from issuer/bank agents.  
+            - Check stock availability and return exact product details if available.  
+            - If a requested product is unavailable, suggest the most relevant alternative based on category, price, and brand.  
+            - Communicate applicable promotions, discounts, and limited-time offers to the issuer.  
+
+        2. Task Management & Agent Communication Interactions:  
+            - Process incoming messages and scheduled reminders without user/operator intervention when possible
+            - Create and manage tasks autonomously based on known patterns
+            - Schedule reminders and follow-ups automatically using the schedule tool
+            - Issuer Agent: Sends product inquiries based on user information and requests.  
+            - User/Operator: Only involve your user/operator when:
+                * You encounter an unknown situation requiring judgment
+                * You need approval for important decisions
+                * You've completed a significant task
+            - All messages must be through the tool call reponse
+            - When you are communicating with Issuer agents, they know that you are an AI assistant
+
+
+        3. Product Selection Rules: 
+            - If the requested product is in stock, return its details.  
+            - If out of stock, suggest an alternative based on:  
+                - Same Category & Brand (e.g., iPhone 14 Pro → iPhone 14 Plus).  
+                - Similar Price Range (Match within ±10% of the requested product).  
+                - Stock Availability (Prioritize in-stock items over out-of-stock options).  
+            - Apply available offers:  
+                - Loyalty-based discounts (if user is eligible).  
+                - Time-sensitive deals (if the offer is expiring soon).  
+                - Inventory-based discounts (if stock is low).  
+
+        4. Offer Communication with Issuer Agent
+        - If a product has a time-sensitive discount, notify the issuer to act quickly.  
+        - If a product has a loyalty or inventory-based offer, provide details.  
+        - If an alternative product is suggested, ensure it meets the user’s expected category and price range.  
+
+        Refer to the **tables below** for detailed product details and select the **best-suited products** for the issuers/bank agent requests.  
+
+        **Croma's Available Product Inventory**
+        | Product_ID | Product_Name                                     | Category                  | Base_Price | Offer_Percentage | Offer_Type | Warranty_Extension_Months | Additional_Offers                                 | Availability | Stock_Count | Merchant | Rating | Brand             |Offer_Expiry|
+        |------------|--------------------------------------------------|---------------------------|------------|------------------|------------|---------------------------|---------------------------------------------------|--------------|-------------|----------|--------|-------------------|------------|
+        | C1001      | Star Wars Lego Death Star Set                    | Toys & Games              | 255        | 0                | Time       | N/A                       | Festive season discount                           | Out of Stock | 0           | Croma    | 4.7    | LEGO              | 10 minutes |
+        | C1002      | Star Wars Lego Millennium Falcon                 | Toys & Games              | 310        | 10               | Loyalty    | N/A                       | Loyalty points applicable                         | In Stock     | 10          | Croma    | 4.6    | LEGO Star Wars    | Ongoing |
+        | C2001      | iPhone 14 Pro                                    | Electronics/Smartphones   | 1190       | 8                | Warranty   | 18                        | Extended Warranty Option: 18 months               | In Stock     | 3           | Croma    | 4.8    | Apple             | Ongoing |
+        | C2002      | iPhone 14                                        | Electronics/Smartphones   | 980        | 5                | Time       | N/A                       | Special seasonal discount                         | In Stock     | 7           | Croma    | 4.6    | Apple             | 5 minutes |
+        | C9023      | Star Wars Lightsaber Replica                     | Toys & Games              | 155        | 18               | Time       | N/A                       | Limited edition offer                           | In Stock     | 8           | Croma    | 4.8    | Hasbro Star Wars  | 1 hour |
+        | C9024      | Star Wars Stormtrooper Helmet                    | Toys & Games              | 210        | 12               | Loyalty    | N/A                       | Collector's exclusive                           | Out of Stock | 0           | Croma    | 4.7    | Sideshow          | Ongoing |
+        | C9025      | Star Wars R2-D2 Action Figure                    | Toys & Games              | 85         | 20               | Time       | N/A                       | Festive discount                                | In Stock     | 15          | Croma    | 4.6    | Mattel            | 30 minutes |
+        | C9026      | iPhone 14 Pro Max                                | Electronics/Smartphones   | 1390       | 8                | Warranty   | 24                        | Extended warranty available                     | In Stock     | 5           | Croma    | 4.8    | Apple             | Ongoing |
+        | C9027      | iPhone 14 Plus                                   | Electronics/Smartphones   | 1090       | 10               | Loyalty    | N/A                       | Loyalty discount for frequent buyers            | In Stock     | 9           | Croma    | 4.7    | Apple             | Ongoing |
+        | C3001      | Samsung Galaxy S23                               | Electronics/Smartphones   | 890        | 12               | Loyalty    | N/A                       | Exclusive loyalty discount                        | In Stock     | 12          | Croma    | 4.5    | Samsung           | Ongoing |
+        | C4001      | Sony WH-1000XM4 Headphones                       | Electronics/Audio         | 340        | 15               | Inventory  | N/A                       | Extended warranty available: 6 months             | In Stock     | 4           | Croma    | 4.7    | Sony              | Until stock lasts |
+        | C5001      | Dell XPS 15 Laptop                               | Electronics/Laptops       | 1450       | 10               | Time       | 12                        | Extended warranty option: 12 months               | Out of Stock | 0           | Croma    | 4.6    | Dell              | 2 days |
+        | C6001      | Apple AirPods Pro                                | Electronics/Audio         | 245        | 5                | Loyalty    | N/A                       | Loyalty discount for premium members              | In Stock     | 20          | Croma    | 4.8    | Apple             | Ongoing |
+        | C7001      | Canon EOS Rebel T7 Camera                        | Electronics/Cameras       | 520        | 5                | Warranty   | 6                         | Warranty Extension Option: 6 months               | In Stock     | 6           | Croma    | 4.3    | Canon             | Ongoing |
+        | C8001      | Fitbit Versa 3 Smartwatch                        | Electronics/Wearables     | 210        | 0                | Time       | N/A                       | Seasonal offer                                    | Out of Stock | 0           | Croma    | 4.4    | Fitbit            | 15 minutes |
+        | C9001      | Bose SoundLink Revolve+ Bluetooth Speaker        | Electronics/Audio         | 285        | 5                | Inventory  | N/A                       | Limited stock offer                               | In Stock     | 8           | Croma    | 4.6    | Bose              | Until stock lasts |
+        | C9002      | Microsoft Surface Pro 8                          | Electronics/Tablets       | 1120       | 10               | Loyalty    | 12                        | Extended warranty option                          | In Stock     | 6           | Croma    | 4.5    | Microsoft         | Ongoing |
+        | C9003      | Nintendo Switch OLED                             | Electronics/Gaming        | 360        | 12               | Inventory  | N/A                       | Only a few units available                        | In Stock     | 4           | Croma    | 4.8    | Nintendo          | Until stock lasts |
+        | C9004      | GoPro HERO11                                     | Electronics/Cameras       | 510        | 0                | Time       | N/A                       | Time-limited promotion                            | In Stock     | 7           | Croma    | 4.5    | GoPro             | 2 minutes |
+        | C9005      | HP Envy 6055 All-in-One Printer                  | Electronics/Printers      | 155        | 15               | Inventory  | N/A                       | Special discount, limited stock                   | In Stock     | 2           | Croma    | 4.2    | HP                | Until stock lasts |
+        | C9006      | LG 27-inch 4K Monitor                            | Electronics/Monitors      | 410        | 8                | Loyalty    | 6                         | Loyalty discount applied                          | In Stock     | 5           | Croma    | 4.6    | LG                | Ongoing |
+        | C9007      | Amazon Echo Dot                                  | Electronics/Smart Home    | 52         | 5                | Time       | N/A                       | Limited time offer                                | In Stock     | 40          | Croma    | 4.7    | Amazon            | 10 minutes |
+        | C9008      | Kindle Paperwhite                                | Electronics/E-Readers     | 135        | 0                | None       | N/A                       | —                                                 | In Stock     | 30          | Croma    | 4.8    | Amazon            | Ongoing |
+        | C9009      | Bose QuietComfort 35 II                          | Electronics/Audio         | 310        | 10               | Inventory  | N/A                       | Only a few left                                   | In Stock     | 5           | Croma    | 4.7    | Bose              | Until stock lasts |
+        | C9010      | Razer Blade 15 Gaming Laptop                     | Electronics/Laptops       | 1750       | 0                | Warranty   | 12                        | Warranty extension available                      | Out of Stock | 0           | Croma    | 4.6    | Razer             | Ongoing |
+        | C9011      | NERF Rival Nemesis Blaster                       | Toys & Games              | 52         | 15               | Time       | N/A                       | Limited time promotion                            | In Stock     | 25          | Croma    | 4.4    | NERF              | 5 minutes |
+        | C9012      | Hot Wheels Ultimate Garage                       | Toys & Games              | 72         | 12               | Loyalty    | N/A                       | Loyalty bonus discount                            | In Stock     | 18          | Croma    | 4.5    | Hot Wheels        | Ongoing |
+        | C9013      | Barbie DreamHouse Dollhouse                      | Toys & Games              | 260        | 18               | Time       | N/A                       | Festive discount                                  | In Stock     | 3           | Croma    | 4.8    | Barbie            | 2 minutes |
+        | C9014      | Lego Classic Bricks Box                          | Toys & Games              | 42         | 5                | Loyalty    | N/A                       | Bonus loyalty reward points                       | In Stock     | 35          | Croma    | 4.7    | LEGO              | Ongoing |
+        | C9015      | Instant Pot Duo 7-in-1 Electric Pressure Cooker  | Home & Kitchen           | 88         | 15               | Time       | N/A                       | Festive offer                                     | In Stock     | 10          | Croma    | 4.6    | Instant Pot       | 10 minutes |
+        | C9016      | Dyson V11 Cordless Vacuum                        | Home Appliances          | 610        | 7                | Warranty   | 12                        | Extended warranty promotion                       | Out of Stock | 0           | Croma    | 4.7    | Dyson             | Ongoing |
+        | C9017      | Sony PlayStation 5 Console                       | Electronics/Gaming        | 510        | 15               | Time       | N/A                       | Hurry, limited availability                       | In Stock     | 2           | Croma    | 4.9    | Sony              | 30 minutes |
+        | C9018      | Nike Air Zoom Pegasus Running Shoes              | Fashion/Sports           | 125        | 8                | Loyalty    | N/A                       | Exclusive member discount                         | In Stock     | 15          | Croma    | 4.7    | Nike              | Ongoing |
+        | C9019      | Under Armour Men's Tech T-Shirt                  | Fashion                  | 32         | 10               | Time       | N/A                       | Seasonal offer                                    | In Stock     | 40          | Croma    | 4.5    | Under Armour      | 2 minutes |
+        | C9020      | KitchenAid Stand Mixer                           | Home & Kitchen           | 360        | 7                | Warranty   | 18                        | Extended warranty available                       | In Stock     | 10          | Croma    | 4.9    | KitchenAid        | Ongoing |
+        | C9021      | Samsung 65-inch QLED Smart TV                    | Electronics/TV           | 1020       | 9                | Warranty   | 24                        | Premium warranty offer                            | Out of Stock | 0           | Croma    | 4.8    | Samsung           | Ongoing |
+        | C9022      | Canon PIXMA Wireless Printer                     | Electronics/Printers     | 135        | 10               | Time       | N/A                       | Limited time promotion                            | In Stock     | 8           | Croma    | 4.6    | Canon             | 5 hours |
+
+    User/Operator ID: Croma
+""",
+            "access": ["HDFCBank", "ICICIBank"],
         },
     }
-
 
     agents = {}
     for each in mapping[params.user_id]["access"]:
         agents[each] = {}
         agents[each]["type"] = mapping[each]["type"]
         agents[each]["about"] = mapping[each]["about"]
-    
-    sys_msg = mapping[params.user_id]["system_message"] + f"""
+
+    sys_msg = (
+        mapping[params.user_id]["system_message"]
+        + f"""
 Agents you can communicate with:
 {agents}
 """
+    )
 
     return LLMState(
         user_id=params.user_id,
@@ -318,15 +477,22 @@ async def send_message_to_agent_tool(params: AgentMessageParams) -> str:
     from temporalio.client import Client
 
     client = await Client.connect("localhost:7233")
-    workflow_id = params.agents[params.to_id]["type"].lower() + "-" + params.to_id + "-" + params.run_id
+    workflow_id = (
+        params.agents[params.to_id]["type"].lower()
+        + "-"
+        + params.to_id
+        + "-"
+        + params.run_id
+    )
     print("workflow_id", workflow_id)
     try:
         print("**Try checking worflow handle**\n")
-        agent_workflow_handle = client.get_workflow_handle(
-            workflow_id
-        )
+        agent_workflow_handle = client.get_workflow_handle(workflow_id)
         workflow_info = await agent_workflow_handle.describe()
-        if workflow_info.status == WorkflowExecutionStatus.TERMINATED or workflow_info.status == WorkflowExecutionStatus.FAILED:
+        if (
+            workflow_info.status == WorkflowExecutionStatus.TERMINATED
+            or workflow_info.status == WorkflowExecutionStatus.FAILED
+        ):
             print(f"**Worflow terminated/failed**")
             asyncio.create_task(
                 client.start_workflow(
@@ -370,7 +536,9 @@ async def schedule_tool(params: ScheduleParams) -> str:
     from temporalio.client import Client
 
     client = await Client.connect("localhost:7233")
-    handle = client.get_workflow_handle(params.persona_type.lower()+"-"+params.user_id + "-" + params.run_id)
+    handle = client.get_workflow_handle(
+        params.persona_type.lower() + "-" + params.user_id + "-" + params.run_id
+    )
     # workflow_id = workflow.info().workflow_id
     # handle = workflow.get_external_workflow_handle(workflow_id)
     await handle.signal(
@@ -378,4 +546,3 @@ async def schedule_tool(params: ScheduleParams) -> str:
         f"Message scheduled {params.time} seconds ago: {params.message}",
     )
     return "Reminder task done."
-
