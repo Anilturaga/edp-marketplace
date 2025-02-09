@@ -24,12 +24,32 @@ PIDS+=($!)
 sleep 1
 
 echo "Starting workflow worker..."
+python worker.py Prahastha &
+PIDS+=($!)
+sleep 1
+
+echo "Starting workflow worker..."
+python worker.py Ayushman &
+PIDS+=($!)
+sleep 1
+
+echo "Starting workflow worker..."
 python worker.py HDFCBank &
 PIDS+=($!)
 sleep 1
 
 echo "Starting workflow worker..."
+python worker.py ICICIBank &
+PIDS+=($!)
+sleep 1
+
+echo "Starting workflow worker..."
 python worker.py Amazon &
+PIDS+=($!)
+sleep 1
+
+echo "Starting workflow worker..."
+python worker.py Croma &
 PIDS+=($!)
 sleep 1
 
