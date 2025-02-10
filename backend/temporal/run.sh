@@ -13,10 +13,10 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-echo "Starting Temporal server..."
-temporal server start-dev &
-PIDS+=($!)
-sleep 2
+# echo "Starting Temporal server..."
+# temporal server start-dev &
+# PIDS+=($!)
+# sleep 2
 
 echo "Starting workflow worker..."
 python worker.py Anil &

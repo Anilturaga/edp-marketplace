@@ -9,19 +9,17 @@
 		LucideUser,
 		LucideAlarmClockCheck,
 		LucideCalendarClock,
-
 		LucideSend
-
 	} from 'lucide-svelte';
-	let {chat} : MultiChatMap = $props();
+	let { chat }: MultiChatMap = $props();
 	console.log(chat);
 	let chatInput = $state('');
 
 	async function handleClick() {
 		const workflowId = `${chat.type}-${chat.name}-${chat.id}`;
 		const taskQueue = `${chat.name}-queue`;
-		
-		console.log("send signal",workflowId, taskQueue, chatInput);
+
+		console.log('send signal', workflowId, taskQueue, chatInput);
 
 		try {
 			const response = await fetch('/api/sendUserSignal', {
@@ -95,12 +93,14 @@
 						{/each}
 					{/if}
 					{#if 'operator_message' in tool_use.input}
-						<div role="alert" class="alert my-2 flex items-start gap-4">
-							<LucideBot class="stroke-info h-6 w-6 shrink-0 mt-1" />
-							<div>
-								<article class="prose">{@html marked(tool_use.input.operator_message)}</article>
+						{#if tool_use.input.operator_message !== '' && tool_use.input.operator_message !== 'null'}
+							<div role="alert" class="alert my-2 flex items-start gap-4">
+								<LucideBot class="stroke-info h-6 w-6 shrink-0 mt-1" />
+								<div>
+									<article class="prose">{@html marked(tool_use.input.operator_message)}</article>
+								</div>
 							</div>
-						</div>
+						{/if}
 					{/if}
 					{#if 'schedule_reminder' in tool_use.input}
 						<div role="alert" class="alert my-2 flex items-start gap-4">
